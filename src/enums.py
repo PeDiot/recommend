@@ -1,0 +1,14 @@
+PROJECT_ID = "recove-450509"
+PROD_DATASET_ID = "prod"
+VINTED_DATASET_ID = "vinted"
+
+ITEM_TABLE_ID = "item_metadata"
+CLICK_OUT_TABLE_ID = "click_out"
+SAVED_TABLE_ID = "saved"
+PINECONE_QUERY_TABLE_ID = "pinecone_query"
+PINECONE_ITEM_TABLE_ID = "pinecone_item"
+QUERIES_TABLE_ID = "queries"
+USER_VECTOR_TABLE_ID = "user_vector"
+
+
+INDEX_NAME = "users"
