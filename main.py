@@ -5,7 +5,7 @@ from pinecone import Pinecone
 import src
 
 
-BATCH_SIZE = 500
+BATCH_SIZE = None
 
 
 def parse_args():
