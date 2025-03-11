@@ -39,8 +39,13 @@ def load_items(client: bigquery.Client, n: Optional[int] = None, index: Optional
     return groupby(list(result), key=lambda x: x['user_id'])
 
 
-def load_queries(client: bigquery.Client, n: Optional[int] = None, index: Optional[int] = None) -> Iterable:
-    query = _query_user_queries(n, index)
+def load_queries(
+    client: bigquery.Client, 
+    from_recommend: bool = False,
+    n: Optional[int] = None, 
+    index: Optional[int] = None
+) -> Iterable:
+    query = _query_user_queries(from_recommend, n, index)
     result = client.query(query).result()
 
     if result.total_rows == 0:
@@ -49,14 +54,25 @@ def load_queries(client: bigquery.Client, n: Optional[int] = None, index: Option
     return groupby(list(result), key=lambda x: x['user_id'])
 
 
-def _query_user_queries(n: Optional[int] = None, index: Optional[int] = None) -> str:
+def _query_user_queries(
+    from_recommend: bool,
+    n: Optional[int] = None, 
+    index: Optional[int] = None
+) -> str:
+    if from_recommend:
+        table_id = f"{RECOMMEND_DATASET_ID}.{QUERY_TABLE_ID}"
+        pin_field_id = "pin_id"
+    else:
+        table_id = f"{PROD_DATASET_ID}.{QUERIES_TABLE_ID}"
+        pin_field_id = "image_url"
+
     query = f"""
     WITH 
     queries AS (
     SELECT 
     q.*,
-    ROW_NUMBER() OVER (PARTITION BY CONCAT(q.user_id, q.image_url, q.text) ORDER BY q.created_at DESC) as row_num
-    FROM `{PROJECT_ID}.{PROD_DATASET_ID}.{QUERIES_TABLE_ID}` AS q
+    ROW_NUMBER() OVER (PARTITION BY CONCAT(q.user_id, q.{pin_field_id}, q.text) ORDER BY q.created_at DESC) as row_num
+    FROM `{PROJECT_ID}.{table_id}` AS q
     LEFT JOIN `{PROJECT_ID}.{PROD_DATASET_ID}.{USER_VECTOR_TABLE_ID}` v
     ON CONCAT(v.user_id, v.query_id) = CONCAT(q.user_id, q.id)
     WHERE CONCAT(v.user_id, v.query_id) IS NULL AND v.item_id IS NULL
