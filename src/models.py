@@ -53,11 +53,11 @@ class UserDataset:
             )
         
     @classmethod
-    def from_text_rows(cls, user_id: str, rows: Iterable) -> "UserDataset":
+    def from_text_rows(cls, user_id: str, rows: Iterable, min_text_size: int) -> "UserDataset":
         point_ids, payloads, texts = [], [], []
         
         for row in rows:
-            if row.text:
+            if row.text and len(row.text.split()) > min_text_size:
                 point_id = str(uuid4())
                 point_ids.append(point_id)
                 payloads.append(dict(row))
@@ -68,5 +68,5 @@ class UserDataset:
                 user_id=user_id,
                 point_ids=point_ids,
                 payloads=payloads,
-                texts=texts
+                texts=texts,
             )
