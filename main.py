@@ -61,11 +61,12 @@ def main():
 
     loader_kwargs = {"client": bq_client, "n": BATCH_SIZE}
     loader = src.bigquery.load_items(**loader_kwargs)
+    user_item_index = src.supabase.get_user_item_index(supabase_url, supabase_key)
 
     n, n_success, n_inserted = 0, 0, 0
 
     for user_id, group in loader:
-        dataset = src.models.UserDataset.from_image_rows(user_id, group)
+        dataset = src.models.UserDataset.from_image_rows(user_id, group, user_item_index)
 
         if dataset:
             n_inserted_ = process_user_dataset(dataset)

@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Iterable, Optional
+from typing import List, Dict, Any, Iterable, Optional, Tuple
 
 from dataclasses import dataclass, field
 from enum import Enum
@@ -53,10 +53,21 @@ class UserDataset:
         return len(self.point_ids)
 
     @classmethod
-    def from_image_rows(cls, user_id: str, rows: Iterable) -> "UserDataset":
+    def from_image_rows(
+        cls,
+        user_id: str,
+        rows: Iterable,
+        user_item_index: List[Tuple[str, str]],
+    ) -> "UserDataset":
         point_ids, metadata_list, images = [], [], []
 
         for row in rows:
+            user_id = row["user_id"]
+            item_id = row["item_id"]
+
+            if (user_id, item_id) in user_item_index:
+                continue
+            
             image = download_image_as_pil(row["image_location"])
 
             if image:

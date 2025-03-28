@@ -13,5 +13,4 @@ QUERIES_TABLE_ID = "queries"
 QUERY_TABLE_ID = "query"
 USER_VECTOR_TABLE_ID = "user_vector"
 
-
 INDEX_NAME = "uservectors"
