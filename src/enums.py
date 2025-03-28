@@ -1,6 +1,5 @@
 PROJECT_ID = "recove-450509"
 PROD_DATASET_ID = "prod"
-PROD_DATASET_ID = "staging"
 VINTED_DATASET_ID = "vinted"
 RECOMMEND_DATASET_ID = "recommend"
 
