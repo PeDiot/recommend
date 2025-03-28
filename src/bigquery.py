@@ -66,15 +66,15 @@ def _query_user_items(n: Optional[int] = None, index: Optional[int] = None) -> s
     WITH 
     user_items AS (
     SELECT DISTINCT user_id, item_id, '{InteractionType.CLICK_OUT.value}' AS interaction_type
-    FROM `{PROJECT_ID}.{STAGING_DATASET_ID}.{CLICK_OUT_TABLE_ID}`
+    FROM `{PROJECT_ID}.{PROD_DATASET_ID}.{CLICK_OUT_TABLE_ID}`
     UNION ALL
     SELECT DISTINCT user_id, item_id, '{InteractionType.SAVED.value}' AS interaction_type
-    FROM `{PROJECT_ID}.{STAGING_DATASET_ID}.{SAVED_TABLE_ID}`
+    FROM `{PROJECT_ID}.{PROD_DATASET_ID}.{SAVED_TABLE_ID}`
     ),
     remaining_user_items AS (
     SELECT ui.*
     FROM user_items ui
-    LEFT JOIN `{PROJECT_ID}.{STAGING_DATASET_ID}.{USER_VECTOR_TABLE_ID}` v
+    LEFT JOIN `{PROJECT_ID}.{PROD_DATASET_ID}.{USER_VECTOR_TABLE_ID}` v
     ON CONCAT(v.user_id, v.item_id) = CONCAT(ui.user_id, ui.item_id)
     WHERE CONCAT(v.user_id, v.item_id) IS NULL
     )
