@@ -8,3 +8,4 @@ datasets==2.20.0
 open-clip-torch>=2.29.0
 huggingface-hub>=0.20.3
 pinecone-client==5.0.1
+supabase>=2.13.0

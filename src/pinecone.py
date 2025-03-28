@@ -1,31 +1,29 @@
 from typing import List, Dict, Tuple
+
 import pinecone
 from datetime import datetime
-
-
-DEFAULT_ID_FIELD_VALUE = "NULL"
+from .models import Vector, BigQueryRow, SupabaseRow
 
 
 def prepare(
-    point_ids: List[str], 
-    payloads: List[Dict],
-    embeddings: List[List[float]]
-) -> Tuple[List[Dict], Dict]:
-    item_index, vectors, rows = [], [], []
+    point_ids: List[str], metadata_list: List[Dict], embeddings: List[List[float]]
+) -> Tuple[List[Dict], List[Dict], List[Dict]]:
+    item_index, vectors, bq_rows, supabase_rows = [], [], [], []
 
-    for point_id, payload, embedding in zip(point_ids, payloads, embeddings):
-        item_id = payload.get("vinted_id") 
-        query_id = payload.get("query_id")
+    for point_id, metadata, embedding in zip(point_ids, metadata_list, embeddings):
+        item_id = metadata.get("vinted_id")
 
-        if query_id or (item_id and item_id not in item_index):
-            row = _create_row(point_id, payload)
-            vector = _create_vector(point_id, payload, embedding)
+        if item_id and item_id not in item_index:
+            bq_row = _create_bq_row(point_id, metadata)
+            supabase_row = _create_supabase_row(point_id, metadata)
+            vector = _create_vector(point_id, metadata, embedding)
 
-            rows.append(row)
-            vectors.append(vector)
+            bq_rows.append(bq_row.__dict__)
+            supabase_rows.append(supabase_row.__dict__)
+            vectors.append(vector.__dict__)
             item_index.append(item_id)
 
-    return vectors, rows
+    return vectors, bq_rows, supabase_rows
 
 
 def upload(index: pinecone.Index, vectors: List[Dict], namespace: str) -> bool:
@@ -39,21 +37,29 @@ def upload(index: pinecone.Index, vectors: List[Dict], namespace: str) -> bool:
         return False
 
 
-def _create_vector(point_id: str, payload: Dict, embedding: List[float]) -> Dict:
-    for id_field in ["item_id", "query_id"]:
-        if not payload.get(id_field):
-            payload[id_field] = DEFAULT_ID_FIELD_VALUE
+def _create_vector(point_id: str, metadata: Dict, embedding: List[float]) -> Vector:
+    if metadata.get("item_id"):
+        if metadata.get("created_at"):
+            metadata["created_at"] = metadata["created_at"].isoformat()
 
-    return {"id": point_id, "values": embedding, "metadata": payload}
+        if metadata.get("updated_at"):
+            metadata["updated_at"] = metadata["updated_at"].isoformat()
+
+        return Vector(id=point_id, values=embedding, metadata=metadata)
 
 
-def _create_row(point_id: str, payload: Dict) -> Dict:
-    row = {
-        "id": point_id,
-        "created_at": datetime.now().isoformat()
-    }
+def _create_bq_row(point_id: str, metadata: Dict) -> BigQueryRow:
+    return BigQueryRow(
+        id=point_id,
+        created_at=datetime.now().isoformat(),
+        user_id=metadata.get("user_id"),
+        item_id=metadata.get("item_id"),
+    )
 
-    for field in ["user_id", "item_id", "query_id"]:
-        row[field] = payload.get(field)
 
-    return row
+def _create_supabase_row(point_id: str, metadata: Dict) -> SupabaseRow:
+    return SupabaseRow(
+        user_id=metadata.get("user_id"),
+        item_id=metadata.get("item_id"),
+        point_id=point_id,
+    )

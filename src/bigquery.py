@@ -9,7 +9,9 @@ from .models import InteractionType
 
 
 def init_client(credentials_dict: Dict) -> bigquery.Client:
-    credentials_dict["private_key"] = credentials_dict["private_key"].replace("\\n", "\n")
+    credentials_dict["private_key"] = credentials_dict["private_key"].replace(
+        "\\n", "\n"
+    )
 
     credentials = service_account.Credentials.from_service_account_info(
         credentials_dict
@@ -20,30 +22,35 @@ def init_client(credentials_dict: Dict) -> bigquery.Client:
     )
 
 
-def upload(client: bigquery.Client, table_id: str, rows: Dict) -> bool:
+def upload(client: bigquery.Client, dataset_id: str, table_id: str, rows: Dict) -> bool:
     try:
-        errors = client.insert_rows_json(table=table_id, json_rows=rows)       
+        errors = client.insert_rows_json(
+            table=f"{dataset_id}.{table_id}", json_rows=rows
+        )
+
         return len(errors) == 0
-    
+
     except:
         return False
 
 
-def load_items(client: bigquery.Client, n: Optional[int] = None, index: Optional[int] = None) -> Iterable:
+def load_items(
+    client: bigquery.Client, n: Optional[int] = None, index: Optional[int] = None
+) -> Iterable:
     query = _query_user_items(n, index)
     result = client.query(query).result()
 
     if result.total_rows == 0:
         return []
 
-    return groupby(list(result), key=lambda x: x['user_id'])
+    return groupby(list(result), key=lambda x: x["user_id"])
 
 
 def load_queries(
-    client: bigquery.Client, 
+    client: bigquery.Client,
     from_recommend: bool = False,
-    n: Optional[int] = None, 
-    index: Optional[int] = None
+    n: Optional[int] = None,
+    index: Optional[int] = None,
 ) -> Iterable:
     query = _query_user_queries(from_recommend, n, index)
     result = client.query(query).result()
@@ -51,13 +58,42 @@ def load_queries(
     if result.total_rows == 0:
         return []
 
-    return groupby(list(result), key=lambda x: x['user_id'])
+    return groupby(list(result), key=lambda x: x["user_id"])
+
+
+def _query_user_items(n: Optional[int] = None, index: Optional[int] = None) -> str:
+    query = f"""
+    WITH 
+    user_items AS (
+    SELECT DISTINCT user_id, item_id, '{InteractionType.CLICK_OUT.value}' AS interaction_type
+    FROM `{PROJECT_ID}.{STAGING_DATASET_ID}.{CLICK_OUT_TABLE_ID}`
+    UNION ALL
+    SELECT DISTINCT user_id, item_id, '{InteractionType.SAVED.value}' AS interaction_type
+    FROM `{PROJECT_ID}.{STAGING_DATASET_ID}.{SAVED_TABLE_ID}`
+    ),
+    remaining_user_items AS (
+    SELECT ui.*
+    FROM user_items ui
+    LEFT JOIN `{PROJECT_ID}.{STAGING_DATASET_ID}.{USER_VECTOR_TABLE_ID}` v
+    ON CONCAT(v.user_id, v.item_id) = CONCAT(ui.user_id, ui.item_id)
+    WHERE CONCAT(v.user_id, v.item_id) IS NULL
+    )
+    SELECT ui.user_id, ui.interaction_type, item.* EXCEPT(id), item.id AS item_id
+    FROM `{PROJECT_ID}.{VINTED_DATASET_ID}.{ITEM_TABLE_ID}` AS item
+    INNER JOIN remaining_user_items AS ui ON item.id = ui.item_id
+    """
+
+    if n:
+        query += f"LIMIT {n}"
+
+        if index:
+            query += f"OFFSET {index * n}"
+
+    return query
 
 
 def _query_user_queries(
-    from_recommend: bool,
-    n: Optional[int] = None, 
-    index: Optional[int] = None
+    from_recommend: bool, n: Optional[int] = None, index: Optional[int] = None
 ) -> str:
     if from_recommend:
         table_id = f"{RECOMMEND_DATASET_ID}.{QUERY_TABLE_ID}"
@@ -80,37 +116,6 @@ def _query_user_queries(
     SELECT * EXCEPT(row_num, id), id AS query_id, NULL AS item_id
     FROM queries
     WHERE row_num = 1
-    """
-
-    if n:
-        query += f"LIMIT {n}"
-
-        if index:
-            query += f"OFFSET {index * n}"
-
-    return query
-
-
-def _query_user_items(n: Optional[int] = None, index: Optional[int] = None) -> str:
-    query = f"""
-    WITH 
-    user_items AS (
-    SELECT DISTINCT user_id, item_id, '{InteractionType.CLICK_OUT.value}' AS interaction_type
-    FROM `{PROJECT_ID}.{PROD_DATASET_ID}.{CLICK_OUT_TABLE_ID}`
-    UNION ALL
-    SELECT DISTINCT user_id, item_id, '{InteractionType.SAVED.value}' AS interaction_type
-    FROM `{PROJECT_ID}.{PROD_DATASET_ID}.{SAVED_TABLE_ID}`
-    ),
-    remaining_user_items AS (
-    SELECT ui.*
-    FROM user_items ui
-    LEFT JOIN `{PROJECT_ID}.{PROD_DATASET_ID}.{USER_VECTOR_TABLE_ID}` v
-    ON CONCAT(v.user_id, v.item_id) = CONCAT(ui.user_id, ui.item_id)
-    WHERE CONCAT(v.user_id, v.item_id) IS NULL AND v.query_id IS NULL
-    )
-    SELECT ui.user_id, ui.interaction_type, item.* EXCEPT(id), item.id AS item_id, NULL AS query_id
-    FROM `{PROJECT_ID}.{VINTED_DATASET_ID}.{ITEM_TABLE_ID}` AS item
-    INNER JOIN remaining_user_items AS ui ON item.id = ui.item_id
     """
 
     if n:

@@ -1,4 +1,5 @@
-import requests
+from typing import Any
+import json, requests
 from PIL import Image
 
 
@@ -9,12 +10,20 @@ REQUESTS_HEADERS = {
 
 def download_image_as_pil(url: str) -> Image.Image:
     try:
-        response = requests.get(
-            url, stream=True, headers=REQUESTS_HEADERS
-        )
+        response = requests.get(url, stream=True, headers=REQUESTS_HEADERS)
 
         if response.status_code == 200:
             return Image.open(response.raw)
 
     except Exception as e:
+        return
+
+
+def load_json(path: str) -> Any:
+    try:
+        with open(path, "r") as f:
+            return json.load(f)
+
+    except Exception as e:
+        print(e)
         return
