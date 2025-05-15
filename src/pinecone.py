@@ -37,12 +37,20 @@ def upload(index: pinecone.Index, vectors: List[Dict], namespace: str) -> bool:
         return False
 
 
+def fetch_vectors(
+    index: pinecone.Index, point_ids: List[str]
+) -> List[pinecone.ScoredVector]:
+    response = index.fetch(ids=point_ids)
+
+    return response.vectors.values()
+
+
 def _create_vector(point_id: str, metadata: Dict, embedding: List[float]) -> Vector:
     if metadata.get("item_id"):
-        if metadata.get("created_at"):
+        if metadata.get("created_at") and isinstance(metadata["created_at"], datetime):
             metadata["created_at"] = metadata["created_at"].isoformat()
 
-        if metadata.get("updated_at"):
+        if metadata.get("updated_at") and isinstance(metadata["updated_at"], datetime):
             metadata["updated_at"] = metadata["updated_at"].isoformat()
 
         return Vector(id=point_id, values=embedding, metadata=metadata)
