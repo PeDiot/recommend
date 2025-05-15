@@ -64,23 +64,29 @@ def load_queries(
 def _query_user_items(n: Optional[int] = None, index: Optional[int] = None) -> str:
     query = f"""
     WITH 
-    user_items AS (
-    SELECT DISTINCT user_id, item_id, '{InteractionType.CLICK_OUT.value}' AS interaction_type
-    FROM `{PROJECT_ID}.{PROD_DATASET_ID}.{CLICK_OUT_TABLE_ID}`
-    UNION ALL
-    SELECT DISTINCT user_id, item_id, '{InteractionType.SAVED.value}' AS interaction_type
-    FROM `{PROJECT_ID}.{PROD_DATASET_ID}.{SAVED_TABLE_ID}`
-    ),
-    remaining_user_items AS (
-    SELECT ui.*
-    FROM user_items ui
-    LEFT JOIN `{PROJECT_ID}.{PROD_DATASET_ID}.{USER_VECTOR_TABLE_ID}` v
-    ON CONCAT(v.user_id, v.item_id) = CONCAT(ui.user_id, ui.item_id)
-    WHERE CONCAT(v.user_id, v.item_id) IS NULL
-    )
-    SELECT ui.user_id, ui.interaction_type, item.* EXCEPT(id), item.id AS item_id
-    FROM `{PROJECT_ID}.{VINTED_DATASET_ID}.{ITEM_TABLE_ID}` AS item
-    INNER JOIN remaining_user_items AS ui ON item.id = ui.item_id
+        user_items AS (
+        SELECT DISTINCT user_id, item_id, '{InteractionType.CLICK_OUT.value}' AS interaction_type
+        FROM `{PROJECT_ID}.{PROD_DATASET_ID}.{CLICK_OUT_TABLE_ID}`
+        UNION ALL
+        SELECT DISTINCT user_id, item_id, '{InteractionType.SAVED.value}' AS interaction_type
+        FROM `{PROJECT_ID}.{PROD_DATASET_ID}.{SAVED_TABLE_ID}`
+        )
+        , vectors AS (
+        SELECT ui.*, p.point_id
+        FROM user_items ui
+        INNER JOIN `{PROJECT_ID}.{VINTED_DATASET_ID}.{PINECONE_TABLE_ID}` p USING (item_id)
+        )
+        , numbered_vectors AS (
+        SELECT v.*,
+        ROW_NUMBER() OVER (PARTITION BY CONCAT(v.user_id, v.item_id) ORDER BY v.interaction_type) as row_num
+        FROM vectors v
+        LEFT JOIN `{PROJECT_ID}.{PROD_DATASET_ID}.{USER_VECTOR_TABLE_ID}` AS uv
+        ON CONCAT(uv.user_id, uv.item_id) = CONCAT(v.user_id, v.item_id)
+        WHERE CONCAT(uv.user_id, uv.item_id) IS NULL
+        )
+    SELECT * EXCEPT(row_num)
+    FROM numbered_vectors
+    WHERE row_num = 1;
     """
 
     if n:
