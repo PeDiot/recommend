@@ -65,23 +65,20 @@ def _query_user_items(n: Optional[int] = None, index: Optional[int] = None) -> s
     query = f"""
     WITH 
         user_items AS (
-        SELECT DISTINCT user_id, item_id, '{InteractionType.CLICK_OUT.value}' AS interaction_type
+        SELECT DISTINCT user_id, item_id, point_id, '{InteractionType.CLICK_OUT.value}' AS interaction_type
         FROM `{PROJECT_ID}.{PROD_DATASET_ID}.{CLICK_OUT_TABLE_ID}`
+        WHERE point_id IS NOT NULL
         UNION ALL
-        SELECT DISTINCT user_id, item_id, '{InteractionType.SAVED.value}' AS interaction_type
+        SELECT DISTINCT user_id, item_id, point_id, '{InteractionType.SAVED.value}' AS interaction_type
         FROM `{PROJECT_ID}.{PROD_DATASET_ID}.{SAVED_TABLE_ID}`
-        )
-        , vectors AS (
-        SELECT ui.*, p.point_id
-        FROM user_items ui
-        INNER JOIN `{PROJECT_ID}.{VINTED_DATASET_ID}.{PINECONE_TABLE_ID}` p USING (item_id)
+        WHERE point_id IS NOT NULL
         )
         , numbered_vectors AS (
-        SELECT v.*,
-        ROW_NUMBER() OVER (PARTITION BY CONCAT(v.user_id, v.item_id) ORDER BY v.interaction_type) as row_num
-        FROM vectors v
+        SELECT ui.*,
+        ROW_NUMBER() OVER (PARTITION BY CONCAT(ui.user_id, ui.item_id) ORDER BY ui.interaction_type) as row_num
+        FROM user_items ui
         LEFT JOIN `{PROJECT_ID}.{PROD_DATASET_ID}.{USER_VECTOR_TABLE_ID}` AS uv
-        ON CONCAT(uv.user_id, uv.item_id) = CONCAT(v.user_id, v.item_id)
+        ON CONCAT(uv.user_id, uv.item_id) = CONCAT(ui.user_id, ui.item_id)
         WHERE CONCAT(uv.user_id, uv.item_id) IS NULL
         )
     SELECT * EXCEPT(row_num)
