@@ -8,17 +8,29 @@ def init_supabase_client(url: str, key: str) -> Client:
 
 
 def upload(
-    supabase_url: str, supabase_key: str, table_id: str, rows: List[Dict]
-) -> bool:
+    supabase_url: str,
+    supabase_key: str,
+    table_id: str,
+    rows: List[Dict],
+) -> int:
     supabase_client = init_supabase_client(supabase_url, supabase_key)
 
     try:
         response = supabase_client.table(table_id).upsert(rows).execute()
-        return len(response.data) == len(rows)
+        return len(response.data)
 
     except Exception as e:
-        print(e)
-        return False
+        num_inserted = 0 
+
+        for row in rows:
+            try:
+                supabase_client.table(table_id).insert(row).execute()
+                num_inserted += 1
+            except Exception as e:
+                pass 
+        return num_inserted
+    
+    return 0
 
 
 def get_user_item_index(supabase_url: str, supabase_key: str) -> List[Tuple[str, str]]:
