@@ -32,15 +32,12 @@ def process_user_dataset(dataset: src.dataset.VectorUserDataset) -> int:
         ):
             return 0
 
-        if not src.supabase.upload(
+        return src.supabase.upload(
             supabase_url=supabase_url,
             supabase_key=supabase_key,
             table_id=src.enums.USER_VECTOR_TABLE_ID,
             rows=supabase_rows,
-        ):
-            return 0
-
-        return len(vectors)
+        )
 
     except Exception as e:
         print(e)
